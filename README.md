@@ -4,5 +4,5 @@ Pytorch implementation of PSPnet for head/face segmentation(dataset is not allow
 # Summary
 This is Pytorch version of PSPNet(adapted from [link](https://github.com/Lextal/pspnet-pytorch)). Support of pytorch 1.4.0.
 
-
-https://github.com/chuzcjoe/PSPnet-Pytorch/blob/master/img/seg.PNG
+# Dataset
+![image](https://github.com/chuzcjoe/PSPnet-Pytorch/raw/master/img/seg.PNG)
