@@ -11,5 +11,6 @@ This is Pytorch version of PSPNet(adapted from [link](https://github.com/Lextal/
 
 1. Original implementation uses offical resnet weights, however the resent structure has been modified in the latest pytorch code.(FIXED)
 2. Add dataloader scripts to read color images, convert segmentation image to label image and generate classification label.(FIXED)
+![image](https://github.com/chuzcjoe/PSPnet-Pytorch/raw/master/img/label.PNG)
 3. Add data augmentation includes: scale, flip and rotation. (TESTING)
 4. Add single image testing. (FIXED)
