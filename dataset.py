@@ -10,6 +10,7 @@ from torch.utils import data
 import torchvision.transforms.functional as ff
 from augmentation import *
 from torchvision import transforms
+import torch
 
 import xml.etree.ElementTree as ET
 
@@ -41,27 +42,32 @@ class LabelProcessor:
 		data = np.array(img, dtype='int32')
 		idx = (data[:,:,0] * 256 + data[:,:,1]) * 256 + data[:,:,2]
 		label = np.array(self.color2label[idx], dtype='int64')
-		y_cls = set(list(np.reshape(label, (-1))))
 
-		return label, y_cls
+		return label
+
+
+p = LabelProcessor()
 
 class HeadSegData(data.Dataset):
 	def __init__(self, datadir, trainxml, crop_size=(296, 280), train=True):
 		self.datadir = datadir
 		self.trainxml = trainxml
-		self.resize = resize
+		self.crop_size = crop_size
+		self.train = train
 
 		self.src = []
 		self.label = []
-		self.y_cls = np.zeros(9, dtype='int64')
 
-		self.p = LabelProcessor()
+		#self.p = LabelProcessor()
 
-		tree = ET.parse('sampleset.xml')
+		tree = ET.parse(self.trainxml)
 		root = tree.getroot()
 
-		if train:
+		if self.train:
 			for i in range(0, len(root)):
+				if root[i].tag == 'bboxes':
+					continue
+
 				if 'real' in root[i].attrib['name']:
 					break
 
@@ -74,6 +80,8 @@ class HeadSegData(data.Dataset):
 
 		else:
 			for i in range(0, len(root)):
+				if root[i].tag == 'bboxes':
+					continue
 				if 'real' in root[i].attrib['name']:
 
 					if root[i].tag == 'srcimg':
@@ -86,35 +94,34 @@ class HeadSegData(data.Dataset):
 		img_file = self.src[index]
 		label_file = self.label[index]
 
-		img = Image.open(img_file)
-		label = Image.open(label_file)
+		img_path = os.path.join(self.datadir, img_file).replace("\\","/")
+		label_path = os.path.join(self.datadir, label_file).replace("\\","/")
 
-		img, label = center_crop(img, label, self.crop_size)
+		img = Image.open(img_path).convert("RGB")
+		label = Image.open(label_path).convert("RGB")
 
-		img, label, y_cls = self.img_transform(img, label)
+		img, label = self.center_crop(img, label, self.crop_size)
 
-		for cls in y_cls:
-			self.y_cls[cls] = 1
+		img, label, y_cls = self.img_transform(img, label, index)
 
-		return img, label, torch.from_numpy(self.y_cls)
+		return img, label, y_cls
+	
+	def __len__(self):
+		return len(self.src)
 
 
 	def center_crop(self, img, label, crop_size):
 		img = ff.center_crop(img, crop_size)
-		label = ff.center_crop(img, crop_size)
+		label = ff.center_crop(label, crop_size)
 
 		return img, label
 
-	def img_transform(self, img, label):
+	def img_transform(self, img, label, index):
 		label = np.array(label)
 		label = Image.fromarray(label.astype('uint8'))
 
-		transform_all = transforms.Compose(
-			[
-			transforms.RandomAffine(degrees=0, scale=(0.5,2)),
-			RandomHorizontalFlip(),
-			RandomRotation()
-			]
+		transform_label = transforms.Compose([
+			transforms.ToTensor()]
 			)
 
 		transform_img = transforms.Compose(
@@ -124,12 +131,17 @@ class HeadSegData(data.Dataset):
 			]
 			)
 
-		img, label = transform_all(img, label)
-
 		img = transform_img(img)
-		label, y_cls = self.p.encode_label_img(label)
-		label = torch.from_numpy(label)
 
-		return img, label, y_cls
+		label = p.encode_label_img(label)
+        #Image.fromarray(label).save("./results_pic/"+str(index)+".png")
+        #print(label.shape)
+		y_cls, _ = np.histogram(label, bins=9, range=(-0.5, 9-0.5), )
+		y_cls = np.asarray(np.asarray(y_cls, dtype=np.bool), dtype=np.uint8)
+
+        #label = transform_label(label)
+        #label = torch.squeeze(label)
+
+		return img, torch.from_numpy(label), torch.from_numpy(y_cls)
 
 

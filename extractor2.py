@@ -1,12 +1,14 @@
+from collections import OrderedDict
+import math
+
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
-
-def load_weights_sequential(target, source_state):
-    new_dict = OrderedDict()
-    for (k1, v1), (k2, v2) in zip(target.state_dict().items(), source_state.items()):
-        new_dict[k1] = v2
-    target.load_state_dict(new_dict)
+try:
+    from torch.hub import load_state_dict_from_url
+except ImportError:
+    from torch.utils.model_zoo import load_url as load_state_dict_from_url
 
 
 model_urls = {
@@ -87,6 +89,8 @@ class Bottleneck(nn.Module):
         super(Bottleneck, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
+
+        #width = planes
         width = int(planes * (base_width / 64.)) * groups
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
         self.conv1 = conv1x1(inplanes, width)
@@ -151,12 +155,10 @@ class ResNet(nn.Module):
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
                                        dilate=replace_stride_with_dilation[0])
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=1,
                                        dilate=replace_stride_with_dilation[1])
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=1,
                                        dilate=replace_stride_with_dilation[2])
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -208,14 +210,31 @@ class ResNet(nn.Module):
 
         x = self.layer1(x)
         x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        x_3 = self.layer3(x)
+        x = self.layer4(x_3)
 
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-
-        return x
+        return x, x_3
 
     def forward(self, x):
         return self._forward_impl(x)
+
+
+def resnet18(pretrained=True):
+    model = ResNet(BasicBlock, [2, 2, 2, 2])
+    if pretrained:
+        state_dict = load_state_dict_from_url(model_urls['resnet18'])
+        model.load_state_dict(state_dict)
+
+    return model
+
+
+def resnet34(pretrained=True):
+    model = ResNet(BasicBlock, [3, 4, 6, 3])
+    if pretrained:
+        pretrained_dict = load_state_dict_from_url(model_urls['resnet34'])
+        model_dict = model.state_dict()
+        pretrained_dict = {k:v for k,v in pretrained_dict.items() if k in model_dict}
+        model_dict.update(pretrained_dict)
+        model.load_state_dict(model_dict)
+    return model
+
