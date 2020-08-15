@@ -6,3 +6,8 @@ This is Pytorch version of PSPNet(adapted from [link](https://github.com/Lextal/
 
 # Dataset
 ![image](https://github.com/chuzcjoe/PSPnet-Pytorch/raw/master/img/seg.PNG)
+
+# Details
+
+1. Original implementation uses offical resnet weights, however the resent structure has been modified in the latest pytorch code.
+2. 
